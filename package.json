@@ -1,0 +1,32 @@
+{
+  "name": "cctp-usdc",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000C\u0000C\u0000T\u0000P\u0000-\u0000U\u0000S\u0000D\u0000C\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AllexAntoniollo/CCTP-USDC.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/AllexAntoniollo/CCTP-USDC/issues"
+  },
+  "homepage": "https://github.com/AllexAntoniollo/CCTP-USDC#readme",
+  "dependencies": {
+    "@circle-fin/adapter-ethers-v6": "^1.6.5",
+    "@circle-fin/adapter-viem-v2": "^1.8.3",
+    "@circle-fin/app-kit": "^1.4.1",
+    "@circle-fin/bridge-kit": "^1.8.3",
+    "@types/node": "^25.6.0",
+    "dotenv": "^17.4.2",
+    "ethers": "^6.16.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
