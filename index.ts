@@ -3,6 +3,7 @@ import { AppKit } from "@circle-fin/app-kit";
 import { createViemAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
 import { inspect } from "util";
 import dotenv from "dotenv";
+
 dotenv.config();
 // Initialize the SDK
 const kit = new AppKit();
