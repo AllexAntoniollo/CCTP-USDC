@@ -66,34 +66,10 @@ export function useWalletConnection() {
   const [transaction, setTransaction] = useState<BridgeTransaction | null>(
     null,
   );
-  const adapterRef = useRef<any>(null);
 
   /**
-   * Recreate adapter to ensure it's always synced with wallet state
+   * Switch wallet to a specific network
    */
-  const recreateAdapter = useCallback(async () => {
-    try {
-      if (!window.ethereum) {
-        console.error("No wallet provider");
-        return;
-      }
-
-      const freshAdapter = await createViemAdapterFromProvider({
-        provider: window.ethereum,
-        capabilities: {
-          addressContext: "user-controlled",
-        },
-      });
-
-      if (freshAdapter) {
-        setAdapter(freshAdapter);
-        adapterRef.current = freshAdapter;
-      }
-    } catch (err) {
-      console.error("Failed to recreate adapter:", err);
-    }
-  }, []);
-
   const switchNetwork = useCallback(
     async (chainName: BridgeChainType): Promise<void> => {
       if (!window.ethereum) {
@@ -137,9 +113,6 @@ export function useWalletConnection() {
               });
               setCurrentChain(chainName);
               console.log(`✅ Added and switched to ${chainName}`);
-
-              // Recreate adapter after network add
-              setTimeout(() => recreateAdapter(), 500);
             } catch (addErr) {
               throw new Error(`Failed to add network ${chainName}`);
             }
@@ -149,7 +122,7 @@ export function useWalletConnection() {
         }
       }
     },
-    [recreateAdapter],
+    [],
   );
 
   const bridgeTokens = useCallback(
@@ -158,50 +131,28 @@ export function useWalletConnection() {
       setError(null);
 
       try {
-        // Use ref as fallback if state is null
-        const currentAdapter = adapter || adapterRef.current;
+        // Initialize adapters for both chains
+        console.log(adapter);
 
-        if (!currentAdapter) {
-          throw new Error("Adapter not initialized. Please reconnect wallet.");
-        }
-
-        console.log("Using adapter:", currentAdapter);
-
-        // Recreate adapter to ensure it's up to date with current network
-        if (!window.ethereum) {
-          throw new Error("No wallet provider found");
-        }
-
-        const freshAdapter = await createViemAdapterFromProvider({
-          provider: window.ethereum,
-          capabilities: {
-            addressContext: "user-controlled",
-          },
-        });
-
-        if (!freshAdapter) {
-          throw new Error("Failed to create fresh adapter");
-        }
-
-        // Use AppKit for bridge
+        // In production, this would use:
         const kit = new AppKit();
         const result = await kit.bridge({
-          from: { adapter: freshAdapter, chain: config.from.chain },
-          to: { adapter: freshAdapter, chain: config.to.chain },
+          from: { adapter, chain: config.from.chain },
+          to: { adapter, chain: config.to.chain },
           amount: config.from.amount,
           config: {
             transferSpeed: TransferSpeed.SLOW,
           },
         });
+        console.log(result);
 
-        console.log("Bridge result:", result);
+        // Simulate bridge transaction
 
-        return result;
+        return;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Bridge transaction failed";
         setError(errorMessage);
-        console.error("Bridge error:", errorMessage);
         throw err;
       } finally {
         setIsLoading(false);
@@ -299,23 +250,8 @@ export function useWalletConnection() {
           addressContext: "user-controlled",
         },
       });
-      if (!viemAdapter) {
-        throw Error("Failed to create adapter from provider");
-      }
 
       setAdapter(viemAdapter);
-      adapterRef.current = viemAdapter;
-
-      // Add listeners for account and chain changes
-      window.ethereum.on("accountsChanged", () => {
-        console.log("Account changed - recreating adapter");
-        recreateAdapter();
-      });
-
-      window.ethereum.on("chainChanged", () => {
-        console.log("Chain changed - recreating adapter");
-        recreateAdapter();
-      });
 
       return address;
     } catch (err) {
@@ -327,7 +263,7 @@ export function useWalletConnection() {
     } finally {
       setIsConnecting(false);
     }
-  }, [recreateAdapter]);
+  }, []);
 
   const disconnectWallet = useCallback(() => {
     setAccount(null);
