@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { BridgeChainType } from "@/lib/cctp.types";
 import { MAINNET_NETWORKS } from "@/lib/cctp.constants";
-import { useCCTPBridge, useWalletConnection } from "@/lib/useCCTPBridge";
+import { useWalletConnection } from "@/lib/useCCTPBridge";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { BridgeInfo } from "@/components/BridgeInfo";
 
@@ -16,47 +16,42 @@ export default function Home() {
     isConnecting,
     error: walletError,
     adapter,
-  } = useWalletConnection();
-  console.log(adapter);
-
-  // Bridge operations
-  const {
+    fetchUSDCBalance,
+    switchNetwork,
+    currentChain,
     bridgeTokens,
     isLoading,
-    error: bridgeError,
-    transaction,
-  } = useCCTPBridge();
+  } = useWalletConnection();
 
-  // UI state
   const [from, setFrom] = useState<BridgeChainType>("Ethereum");
   const [to, setTo] = useState<BridgeChainType>("Arbitrum");
   const [amount, setAmount] = useState("");
   const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const availableNetworks = MAINNET_NETWORKS;
 
   useEffect(() => {
     const fetchBalance = async () => {
       if (!adapter || !account) return;
 
+      setIsLoadingBalance(true);
       try {
-        const balance = await adapter.actionRegistry.execute("usdc.balanceOf", {
-          address: account,
-        });
-
-        // dependendo da lib pode vir BigInt
-        const formatted = Number(balance) / 1e6; // USDC = 6 decimals
-
-        setUsdcBalance(formatted.toFixed(2));
+        const balance = await fetchUSDCBalance(from);
+        setUsdcBalance(balance);
       } catch (err) {
-        console.error("Erro ao buscar balance:", err);
+        console.error("Error fetching USDC balance:", err);
+        setUsdcBalance("0.00");
+      } finally {
+        setIsLoadingBalance(false);
       }
     };
 
     fetchBalance();
-  }, [adapter, account, from]); // importante: atualiza ao trocar rede
+  }, [adapter, account, from, fetchUSDCBalance, bridgeTokens]);
 
   const handleBridge = async () => {
     if (!amount || !account) return;
+    console.log(from, to, amount);
 
     try {
       await bridgeTokens({
@@ -93,9 +88,13 @@ export default function Home() {
               </p>
             </div>
             {account ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">Connected</p>
+                  <p className="text-xs text-gray-400">Connected to</p>
+                  <p className="text-sm font-mono text-white">
+                    {currentChain || "Unknown"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Account</p>
                   <p className="text-sm font-mono text-white">
                     {account.slice(0, 6)}...{account.slice(-4)}
                   </p>
@@ -120,7 +119,7 @@ export default function Home() {
           </div>
 
           {/* Error messages */}
-          {(walletError || bridgeError) && (
+          {walletError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/50 text-red-200 text-sm backdrop-blur-sm">
               <div className="flex items-start gap-3">
                 <svg
@@ -134,13 +133,14 @@ export default function Home() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>{walletError || bridgeError}</span>
+                <span>{walletError}</span>
+                {/* <span>{walletError || bridgeError}</span> */}
               </div>
             </div>
           )}
 
           {/* Transaction status */}
-          {transaction && (
+          {/* {transaction && (
             <div className="mb-6 p-4 rounded-xl bg-blue-500/20 border border-blue-500/50 text-blue-100 text-sm backdrop-blur-sm">
               <div className="flex items-start gap-3">
                 <svg
@@ -169,7 +169,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* FROM Section */}
           <div className="mb-4">
@@ -184,9 +184,28 @@ export default function Home() {
           {/* Balance indicator */}
           <div className="mb-6 text-right">
             <p className="text-xs text-gray-400">Available Balance</p>
-            <p className="text-lg font-semibold text-white mt-1">
-              {usdcBalance} USDC
-            </p>{" "}
+            <p className="text-lg font-semibold text-white mt-1 flex items-center justify-end gap-2">
+              {isLoadingBalance ? (
+                <>
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  <span className="text-gray-400">Loading...</span>
+                </>
+              ) : (
+                <>{usdcBalance} USDC</>
+              )}
+            </p>
           </div>
 
           {/* INPUT */}

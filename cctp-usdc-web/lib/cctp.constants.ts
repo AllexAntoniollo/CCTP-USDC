@@ -22,7 +22,7 @@ export const BRIDGE_NETWORKS: BlockchainNetwork[] = [
     isTestnet: false,
     chainId: 42161,
     color: "from-blue-600 to-blue-400",
-    icon: "�",
+    icon: "🔵",
   },
   {
     id: "Base",
@@ -69,22 +69,7 @@ export const BRIDGE_NETWORKS: BlockchainNetwork[] = [
     color: "from-purple-500 to-pink-500",
     icon: "〰️",
   },
-  {
-    id: "Solana",
-    name: "Solana",
-    title: "Solana Mainnet",
-    isTestnet: false,
-    color: "from-green-500 to-cyan-400",
-    icon: "◎",
-  },
-  {
-    id: "Sonic",
-    name: "Sonic",
-    title: "Sonic Mainnet",
-    isTestnet: false,
-    color: "from-yellow-500 to-orange-400",
-    icon: "⚡",
-  },
+
   {
     id: "Unichain",
     name: "Unichain",
@@ -93,33 +78,21 @@ export const BRIDGE_NETWORKS: BlockchainNetwork[] = [
     color: "from-pink-500 to-red-400",
     icon: "🦄",
   },
-  {
-    id: "Morph",
-    name: "Morph",
-    title: "Morph Mainnet",
-    isTestnet: false,
-    color: "from-indigo-500 to-purple-400",
-    icon: "🌀",
-  },
-  {
-    id: "XDC",
-    name: "XDC",
-    title: "XDC Mainnet",
-    isTestnet: false,
-    color: "from-green-600 to-green-400",
-    icon: "✕",
-  },
-  {
-    id: "Sei",
-    name: "Sei",
-    title: "Sei Mainnet",
-    isTestnet: false,
-    color: "from-orange-500 to-red-400",
-    icon: "◈",
-  },
 ];
 export const MAINNET_NETWORKS = BRIDGE_NETWORKS.filter((n) => !n.isTestnet);
 
 export function getNetworkById(id: string): BlockchainNetwork | undefined {
   return BRIDGE_NETWORKS.find((n) => n.id === id);
+}
+
+/**
+ * Get chain ID from network name (normalizes the name format)
+ */
+export function getChainIdFromName(chainName: string): number | undefined {
+  // Normalize the name by replacing hyphens with underscores and handling case sensitivity
+  const normalized = chainName.replace("-", "_");
+  const network = BRIDGE_NETWORKS.find(
+    (n) => n.id.toLowerCase() === normalized.toLowerCase(),
+  );
+  return network?.chainId;
 }

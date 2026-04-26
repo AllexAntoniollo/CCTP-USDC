@@ -1,4 +1,5 @@
 "use client";
+import { AppKit, TransferSpeed } from "@circle-fin/app-kit";
 
 import { useCallback, useRef, useState } from "react";
 import type { BridgeChainType, BridgeConfig } from "./cctp.types";
@@ -38,114 +39,6 @@ export interface BridgeTransaction {
 /**
  * Hook for managing CCTP bridge operations
  */
-export function useCCTPBridge() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [transaction, setTransaction] = useState<BridgeTransaction | null>(
-    null,
-  );
-  const adapterCacheRef = useRef<Map<BridgeChainType, any>>(new Map());
-
-  /**
-   * Initialize adapter for a specific chain
-   * In production, this would use the viem adapter from the SDK
-   */
-  const initializeAdapter = useCallback(
-    async (chain: BridgeChainType, privateKey?: string) => {
-      if (adapterCacheRef.current.has(chain)) {
-        return adapterCacheRef.current.get(chain);
-      }
-
-      try {
-        // Note: In production, this would be:
-        // import { createViemAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
-        // const adapter = createViemAdapterFromPrivateKey({
-        //   privateKey: privateKey || process.env.NEXT_PUBLIC_PRIVATE_KEY,
-        // });
-
-        // For now, we'll create a placeholder adapter
-        const adapter = {
-          chain,
-          initialized: true,
-          getAddress: async () => "0x...", // Would get from wallet
-          signTransaction: async (tx: any) => ({ ...tx, signed: true }),
-        };
-
-        adapterCacheRef.current.set(chain, adapter);
-        return adapter;
-      } catch (err) {
-        setError(`Failed to initialize adapter for ${chain}`);
-        throw err;
-      }
-    },
-    [],
-  );
-
-  /**
-   * Bridge tokens between chains
-   */
-  const bridgeTokens = useCallback(
-    async (config: BridgeConfig, privateKey?: string) => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Initialize adapters for both chains
-        const fromAdapter = await initializeAdapter(
-          config.from.chain,
-          privateKey,
-        );
-        const toAdapter = await initializeAdapter(config.to.chain, privateKey);
-
-        // In production, this would use:
-        // import { AppKit } from "@circle-fin/app-kit";
-        // const kit = new AppKit();
-        // const result = await kit.bridge({
-        //   from: { adapter: fromAdapter, chain: config.from.chain },
-        //   to: { adapter: toAdapter, chain: config.to.chain },
-        //   amount: config.from.amount,
-        // });
-
-        // Simulate bridge transaction
-        const tx: BridgeTransaction = {
-          hash: `0x${Math.random().toString(16).slice(2)}`,
-          status: "pending",
-          from: config.from.chain,
-          to: config.to.chain,
-          amount: config.from.amount,
-        };
-
-        setTransaction(tx);
-        return tx;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Bridge transaction failed";
-        setError(errorMessage);
-        throw err;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [initializeAdapter],
-  );
-
-  /**
-   * Clear transaction state
-   */
-  const clearTransaction = useCallback(() => {
-    setTransaction(null);
-    setError(null);
-  }, []);
-
-  return {
-    bridgeTokens,
-    initializeAdapter,
-    clearTransaction,
-    isLoading,
-    error,
-    transaction,
-  };
-}
 
 /**
  * Hook for wallet connection management
@@ -157,12 +50,222 @@ declare global {
 }
 
 import { ethers } from "ethers";
+import {
+  getUSDCAddress,
+  USDC_DECIMALS,
+  getChainConfig,
+} from "./usdc.constants";
 
 export function useWalletConnection() {
   const [account, setAccount] = useState<string | null>(null);
   const [adapter, setAdapter] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentChain, setCurrentChain] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [transaction, setTransaction] = useState<BridgeTransaction | null>(
+    null,
+  );
+  const adapterRef = useRef<any>(null);
+
+  /**
+   * Recreate adapter to ensure it's always synced with wallet state
+   */
+  const recreateAdapter = useCallback(async () => {
+    try {
+      if (!window.ethereum) {
+        console.error("No wallet provider");
+        return;
+      }
+
+      const freshAdapter = await createViemAdapterFromProvider({
+        provider: window.ethereum,
+        capabilities: {
+          addressContext: "user-controlled",
+        },
+      });
+
+      if (freshAdapter) {
+        setAdapter(freshAdapter);
+        adapterRef.current = freshAdapter;
+      }
+    } catch (err) {
+      console.error("Failed to recreate adapter:", err);
+    }
+  }, []);
+
+  const switchNetwork = useCallback(
+    async (chainName: BridgeChainType): Promise<void> => {
+      if (!window.ethereum) {
+        throw new Error("No wallet provider found");
+      }
+
+      try {
+        const chainConfig = getChainConfig(chainName);
+        if (!chainConfig) {
+          throw new Error(`Network configuration not found for ${chainName}`);
+        }
+
+        // Request wallet to switch to the chain
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: chainConfig.chainIdHex }],
+        });
+
+        setCurrentChain(chainName);
+      } catch (err: any) {
+        // If the chain is not added, add it first
+        if (err.code === 4902) {
+          const chainConfig = getChainConfig(chainName);
+          if (chainConfig) {
+            try {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [
+                  {
+                    chainId: chainConfig.chainIdHex,
+                    chainName: chainConfig.name,
+                    rpcUrls: [chainConfig.rpcUrl],
+                    blockExplorerUrls: [chainConfig.blockExplorer],
+                    nativeCurrency: {
+                      name: "ETH",
+                      symbol: "ETH",
+                      decimals: 18,
+                    },
+                  },
+                ],
+              });
+              setCurrentChain(chainName);
+              console.log(`✅ Added and switched to ${chainName}`);
+
+              // Recreate adapter after network add
+              setTimeout(() => recreateAdapter(), 500);
+            } catch (addErr) {
+              throw new Error(`Failed to add network ${chainName}`);
+            }
+          }
+        } else {
+          throw err;
+        }
+      }
+    },
+    [recreateAdapter],
+  );
+
+  const bridgeTokens = useCallback(
+    async (config: BridgeConfig) => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Use ref as fallback if state is null
+        const currentAdapter = adapter || adapterRef.current;
+
+        if (!currentAdapter) {
+          throw new Error("Adapter not initialized. Please reconnect wallet.");
+        }
+
+        console.log("Using adapter:", currentAdapter);
+
+        // Recreate adapter to ensure it's up to date with current network
+        if (!window.ethereum) {
+          throw new Error("No wallet provider found");
+        }
+
+        const freshAdapter = await createViemAdapterFromProvider({
+          provider: window.ethereum,
+          capabilities: {
+            addressContext: "user-controlled",
+          },
+        });
+
+        if (!freshAdapter) {
+          throw new Error("Failed to create fresh adapter");
+        }
+
+        // Use AppKit for bridge
+        const kit = new AppKit();
+        const result = await kit.bridge({
+          from: { adapter: freshAdapter, chain: config.from.chain },
+          to: { adapter: freshAdapter, chain: config.to.chain },
+          amount: config.from.amount,
+          config: {
+            transferSpeed: TransferSpeed.SLOW,
+          },
+        });
+
+        console.log("Bridge result:", result);
+
+        return result;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Bridge transaction failed";
+        setError(errorMessage);
+        console.error("Bridge error:", errorMessage);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [adapter],
+  );
+
+  /**
+   * Fetch USDC balance for the current account using ethers
+   */
+
+  const fetchUSDCBalance = useCallback(
+    async (chainName: BridgeChainType): Promise<string> => {
+      if (!account) {
+        throw new Error("Wallet not connected");
+      }
+
+      try {
+        // Switch to the target chain first
+        await switchNetwork(chainName);
+
+        const usdcAddress = getUSDCAddress(chainName);
+        if (!usdcAddress) {
+          throw new Error(`USDC not supported on ${chainName}`);
+        }
+
+        // Create provider from window.ethereum
+        if (!window.ethereum) {
+          throw new Error("No wallet provider found");
+        }
+
+        const provider = new ethers.BrowserProvider(window.ethereum);
+
+        // ERC20 ABI - only need balanceOf function
+        const ERC20_ABI = [
+          "function balanceOf(address account) external view returns (uint256)",
+        ];
+
+        // Create contract instance
+        const contract = new ethers.Contract(usdcAddress, ERC20_ABI, provider);
+
+        // Call balanceOf
+
+        const balance = await contract.balanceOf(account);
+
+        // Format balance (USDC has 6 decimals)
+        const formattedBalance = Number(
+          ethers.formatUnits(balance, USDC_DECIMALS),
+        );
+
+        const floored = Math.floor(formattedBalance * 100) / 100;
+
+        return floored.toFixed(2);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch USDC balance";
+        console.error("Error fetching balance:", message);
+        throw err;
+      }
+    },
+
+    [account, switchNetwork],
+  );
 
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
@@ -196,8 +299,23 @@ export function useWalletConnection() {
           addressContext: "user-controlled",
         },
       });
+      if (!viemAdapter) {
+        throw Error("Failed to create adapter from provider");
+      }
 
       setAdapter(viemAdapter);
+      adapterRef.current = viemAdapter;
+
+      // Add listeners for account and chain changes
+      window.ethereum.on("accountsChanged", () => {
+        console.log("Account changed - recreating adapter");
+        recreateAdapter();
+      });
+
+      window.ethereum.on("chainChanged", () => {
+        console.log("Chain changed - recreating adapter");
+        recreateAdapter();
+      });
 
       return address;
     } catch (err) {
@@ -209,7 +327,7 @@ export function useWalletConnection() {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [recreateAdapter]);
 
   const disconnectWallet = useCallback(() => {
     setAccount(null);
@@ -224,5 +342,10 @@ export function useWalletConnection() {
     disconnectWallet,
     isConnecting,
     error,
+    fetchUSDCBalance,
+    switchNetwork,
+    currentChain,
+    isLoading,
+    bridgeTokens,
   };
 }

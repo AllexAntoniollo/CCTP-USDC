@@ -1,5 +1,5 @@
 // Import App Kit and its dependencies
-import { AppKit } from "@circle-fin/app-kit";
+import { AppKit, TransferSpeed } from "@circle-fin/app-kit";
 import { createViemAdapterFromPrivateKey } from "@circle-fin/adapter-viem-v2";
 import { inspect } from "util";
 import dotenv from "dotenv";
@@ -17,11 +17,13 @@ const bridgeUSDC = async (): Promise<void> => {
 
     console.log("---------------Starting Bridging---------------");
 
-    // Use the same adapter for the source and destination blockchains
     const result = await kit.bridge({
       from: { adapter, chain: "Polygon" },
-      to: { adapter, chain: "Linea" },
-      amount: "0.01",
+      to: { adapter, chain: "Arbitrum" },
+      amount: "1",
+      config: {
+        transferSpeed: TransferSpeed.SLOW,
+      },
     });
 
     console.log("RESULT", inspect(result, false, null, true));
