@@ -29,23 +29,21 @@ export default function Home() {
   const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const availableNetworks = MAINNET_NETWORKS;
+  const fetchBalance = async () => {
+    if (!adapter || !account) return;
 
+    setIsLoadingBalance(true);
+    try {
+      const balance = await fetchUSDCBalance(from);
+      setUsdcBalance(balance);
+    } catch (err) {
+      console.error("Error fetching USDC balance:", err);
+      setUsdcBalance("0.00");
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  };
   useEffect(() => {
-    const fetchBalance = async () => {
-      if (!adapter || !account) return;
-
-      setIsLoadingBalance(true);
-      try {
-        const balance = await fetchUSDCBalance(from);
-        setUsdcBalance(balance);
-      } catch (err) {
-        console.error("Error fetching USDC balance:", err);
-        setUsdcBalance("0.00");
-      } finally {
-        setIsLoadingBalance(false);
-      }
-    };
-
     fetchBalance();
   }, [adapter, account, from, fetchUSDCBalance, bridgeTokens]);
 
@@ -58,6 +56,7 @@ export default function Home() {
         from: { chain: from, amount },
         to: { chain: to },
       });
+      await fetchBalance(); // Refresh balance after bridging
     } catch (err) {
       console.error("Bridge failed:", err);
     }
