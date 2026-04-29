@@ -63,4 +63,6 @@ export interface BridgeConfig {
   to: {
     chain: BridgeChainType;
   };
+  destinationAddress: string;
+  isFast: boolean;
 }

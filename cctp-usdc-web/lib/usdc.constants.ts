@@ -8,9 +8,9 @@ export const USDC_DECIMALS = 6;
 export interface ChainConfig {
   chainId: number;
   chainIdHex: string;
-  rpcUrl: string;
   blockExplorer: string;
   name: string;
+  domain: number;
 }
 
 export const CHAIN_CONFIG: Record<string, ChainConfig> = {
@@ -18,59 +18,59 @@ export const CHAIN_CONFIG: Record<string, ChainConfig> = {
   Ethereum: {
     chainId: 1,
     chainIdHex: "0x1",
-    rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/demo",
-    blockExplorer: "https://etherscan.io",
     name: "Ethereum",
+    blockExplorer: "https://etherscan.io",
+    domain: 0,
   },
   Arbitrum: {
     chainId: 42161,
     chainIdHex: "0xa4b1",
-    rpcUrl: "https://arb-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://arbiscan.io",
     name: "Arbitrum",
+    domain: 3,
   },
   Base: {
     chainId: 8453,
     chainIdHex: "0x2105",
-    rpcUrl: "https://base-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://basescan.org",
     name: "Base",
+    domain: 6,
   },
   Optimism: {
     chainId: 10,
     chainIdHex: "0xa",
-    rpcUrl: "https://opt-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://optimismscan.io",
     name: "Optimism",
+    domain: 2,
   },
   Polygon: {
     chainId: 137,
     chainIdHex: "0x89",
-    rpcUrl: "https://polygon-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://polygonscan.com",
     name: "Polygon",
+    domain: 7,
   },
   Avalanche: {
     chainId: 43114,
     chainIdHex: "0xa86a",
-    rpcUrl: "https://avax-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://snowtrace.io",
     name: "Avalanche",
+    domain: 1,
   },
   Linea: {
     chainId: 59144,
     chainIdHex: "0xe708",
-    rpcUrl: "https://linea-mainnet.infura.io/v3/YOUR-API-KEY",
     blockExplorer: "https://lineascan.build",
     name: "Linea",
+    domain: 11,
   },
 
   Unichain: {
     chainId: 130,
     chainIdHex: "0x82",
-    rpcUrl: "https://unichain-mainnet.g.alchemy.com/v2/demo",
     blockExplorer: "https://uniscan.xyz",
     name: "Unichain",
+    domain: 10,
   },
 };
 
@@ -85,21 +85,6 @@ export const USDC_ADDRESSES: Record<string, string> = {
   Linea: "0x176211869ca2b568f2a7d4ee941e073a821ee1ff",
   Unichain: "0x078d782b760474a361dda0af3839290b0ef57ad6",
 };
-
-/**
- * ERC20 ABI for balanceOf function
- */
-export const ERC20_ABI = [
-  {
-    constant: true,
-    inputs: [{ name: "_owner", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "balance", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
 
 /**
  * Get USDC address for a specific chain

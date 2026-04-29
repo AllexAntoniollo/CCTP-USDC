@@ -7,7 +7,7 @@ import {
   createViemAdapterFromProvider,
   resolveChainIdentifier,
 } from "@circle-fin/adapter-viem-v2";
-
+import ERC20_ABI from "../services/abis/usdc.abi.json";
 /**
  * Types for wallet adapter
  */
@@ -55,6 +55,8 @@ import {
   USDC_DECIMALS,
   getChainConfig,
 } from "./usdc.constants";
+import { approveUSDC, burn, mintUsdc } from "@/services/Web3Service";
+import { getAttestation } from "@/services/Web2Service";
 
 export function useWalletConnection() {
   const [account, setAccount] = useState<string | null>(null);
@@ -101,7 +103,6 @@ export function useWalletConnection() {
                   {
                     chainId: chainConfig.chainIdHex,
                     chainName: chainConfig.name,
-                    rpcUrls: [chainConfig.rpcUrl],
                     blockExplorerUrls: [chainConfig.blockExplorer],
                     nativeCurrency: {
                       name: "ETH",
@@ -132,22 +133,31 @@ export function useWalletConnection() {
 
       try {
         // Initialize adapters for both chains
-        console.log(adapter);
 
-        // In production, this would use:
-        const kit = new AppKit();
-        const result = await kit.bridge({
-          from: { adapter, chain: config.from.chain },
-          to: { adapter, chain: config.to.chain },
-          amount: config.from.amount,
-          config: {
-            transferSpeed: TransferSpeed.SLOW,
-          },
-        });
-        console.log(result);
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        await approveUSDC(config.from.chain, config.from.amount, signer);
+        const txHashBurn = await burn(
+          config.from.chain,
+          config.to.chain,
+          config.from.amount,
+          config.destinationAddress,
+          signer,
+          config.isFast,
+        );
+        let res = await getAttestation(config.from.chain, txHashBurn);
 
-        // Simulate bridge transaction
-
+        while (res.attestation == "PENDING") {
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+          const updatedRes = await getAttestation(
+            config.from.chain,
+            txHashBurn,
+          );
+          res = updatedRes;
+        }
+        switchNetwork(config.to.chain);
+        const txHashMint = await mintUsdc(res.message, res.attestation, signer);
+        switchNetwork(config.from.chain);
         return;
       } catch (err) {
         const errorMessage =
@@ -187,15 +197,8 @@ export function useWalletConnection() {
 
         const provider = new ethers.BrowserProvider(window.ethereum);
 
-        // ERC20 ABI - only need balanceOf function
-        const ERC20_ABI = [
-          "function balanceOf(address account) external view returns (uint256)",
-        ];
-
         // Create contract instance
         const contract = new ethers.Contract(usdcAddress, ERC20_ABI, provider);
-
-        // Call balanceOf
 
         const balance = await contract.balanceOf(account);
 

@@ -96,3 +96,67 @@ export function getChainIdFromName(chainName: string): number | undefined {
   );
   return network?.chainId;
 }
+
+/**
+ * Bridge transaction fees (in percentage)
+ */
+export const BRIDGE_FEES_PERCENT: Record<string, number> = {
+  Ethereum: 0.5,
+  Arbitrum: 0.3,
+  Base: 0.3,
+  Optimism: 0.3,
+  Polygon: 0.4,
+  Avalanche: 0.4,
+  Linea: 0.3,
+  Unichain: 0.3,
+};
+
+/**
+ * Bridge time estimates for paid transactions (in minutes)
+ */
+export const BRIDGE_TIME_ESTIMATES_PAID: Record<string, string> = {
+  Ethereum: "20 Seconds",
+  Arbitrum: "8 Seconds",
+  Base: "8 Seconds",
+  Optimism: "8 Seconds",
+  Polygon: "8 Seconds",
+  Avalanche: "8 Seconds",
+  Linea: "8 Seconds",
+  Unichain: "8 Seconds",
+};
+
+/**
+ * Bridge time estimates for free transactions (in minutes)
+ */
+export const BRIDGE_TIME_ESTIMATES_FREE: Record<string, string> = {
+  Ethereum: "15-19 Minutes",
+  Arbitrum: "15-19 Minutes",
+  Base: "15-19 Minutes",
+  Optimism: "15-19 Minutes",
+  Polygon: "8 Seconds",
+  Avalanche: "8 Seconds",
+  Linea: "6-32 Hours",
+  Unichain: "15-19 Minutes",
+};
+
+/**
+ * Get bridge fee percentage for a network
+ */
+export function getBridgeFeePercent(network: string): number {
+  return BRIDGE_FEES_PERCENT[network] || 0.3;
+}
+
+/**
+ * Get bridge time estimate for a network (in minutes)
+ * @param network - The network name
+ * @param isFree - Whether it's a free transaction (slower) or paid (faster)
+ */
+export function getBridgeTimeEstimate(
+  network: string,
+  isFree: boolean = false,
+): string {
+  if (isFree) {
+    return BRIDGE_TIME_ESTIMATES_FREE[network];
+  }
+  return BRIDGE_TIME_ESTIMATES_PAID[network];
+}

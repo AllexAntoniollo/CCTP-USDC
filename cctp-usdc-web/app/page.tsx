@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import type { BridgeChainType } from "@/lib/cctp.types";
-import { MAINNET_NETWORKS } from "@/lib/cctp.constants";
+import {
+  MAINNET_NETWORKS,
+  getBridgeFeePercent,
+  getBridgeTimeEstimate,
+} from "@/lib/cctp.constants";
 import { useWalletConnection } from "@/lib/useCCTPBridge";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { BridgeInfo } from "@/components/BridgeInfo";
 
 export default function Home() {
-  // Wallet management
   const {
     account,
     connectWallet,
@@ -17,7 +20,6 @@ export default function Home() {
     error: walletError,
     adapter,
     fetchUSDCBalance,
-    switchNetwork,
     currentChain,
     bridgeTokens,
     isLoading,
@@ -28,7 +30,27 @@ export default function Home() {
   const [amount, setAmount] = useState("");
   const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-  const availableNetworks = MAINNET_NETWORKS;
+  const [isFreeTransaction, setIsFreeTransaction] = useState(true);
+  const [destinationAddress, setDestinationAddress] = useState("");
+
+  useEffect(() => {
+    if (account) {
+      setDestinationAddress(account);
+    }
+  }, [account]);
+
+  // Calculate bridge fee
+  const calculateFee = () => {
+    if (!amount || isFreeTransaction) return 0;
+    const feePercent = getBridgeFeePercent(from);
+    return (parseFloat(amount) * feePercent) / 100;
+  };
+
+  // Get bridge time estimate
+  const getBridgeTime = () => {
+    return getBridgeTimeEstimate(from, isFreeTransaction);
+  };
+
   const fetchBalance = async () => {
     if (!adapter || !account) return;
 
@@ -49,12 +71,13 @@ export default function Home() {
 
   const handleBridge = async () => {
     if (!amount || !account) return;
-    console.log(from, to, amount);
 
     try {
       await bridgeTokens({
         from: { chain: from, amount },
         to: { chain: to },
+        destinationAddress: destinationAddress,
+        isFast: !isFreeTransaction,
       });
       await fetchBalance(); // Refresh balance after bridging
     } catch (err) {
@@ -133,47 +156,14 @@ export default function Home() {
                   />
                 </svg>
                 <span>{walletError}</span>
-                {/* <span>{walletError || bridgeError}</span> */}
               </div>
             </div>
           )}
 
-          {/* Transaction status */}
-          {/* {transaction && (
-            <div className="mb-6 p-4 rounded-xl bg-blue-500/20 border border-blue-500/50 text-blue-100 text-sm backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <svg
-                  className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                <div>
-                  <p className="font-medium">
-                    Bridging {transaction.amount} USDC
-                  </p>
-                  <p className="text-xs text-blue-200/80 mt-1">
-                    From {transaction.from} to {transaction.to}
-                  </p>
-                  <p className="text-xs text-blue-200/60 mt-2 font-mono">
-                    {transaction.hash.slice(0, 20)}...
-                  </p>
-                </div>
-              </div>
-            </div>
-          )} */}
-
           {/* FROM Section */}
           <div className="mb-4">
             <NetworkSelector
-              networks={availableNetworks}
+              networks={MAINNET_NETWORKS}
               value={from}
               onChange={(value) => setFrom(value as BridgeChainType)}
               label="From"
@@ -241,6 +231,61 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Transaction Type Checkbox */}
+          <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="freeTransaction"
+                checked={isFreeTransaction}
+                onChange={(e) => setIsFreeTransaction(e.target.checked)}
+                className="w-5 h-5 rounded accent-purple-500 cursor-pointer"
+              />
+              <label
+                htmlFor="freeTransaction"
+                className="cursor-pointer flex-1"
+              >
+                <p className="text-sm font-medium text-white">
+                  {isFreeTransaction
+                    ? "Free Transaction"
+                    : "Pay Transaction Fee"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {isFreeTransaction
+                    ? "Slower confirmation time"
+                    : "Faster confirmation time"}
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {/* Fee and Time Info */}
+          {amount && (
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              {/* Fee Info */}
+              <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30">
+                <p className="text-xs text-gray-400 mb-1">
+                  {isFreeTransaction ? "No Fee" : "Transaction Fee"}
+                </p>
+                <p className="text-lg font-semibold text-white">
+                  {isFreeTransaction ? "0.00" : calculateFee().toFixed(4)} USDC
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {isFreeTransaction ? "-" : `${getBridgeFeePercent(from)}%`}
+                </p>
+              </div>
+
+              {/* Time Info */}
+              <div className="p-3 rounded-lg bg-gradient-to-br from-pink-500/20 to-red-500/20 border border-pink-400/30">
+                <p className="text-xs text-gray-400 mb-1">Est. Time</p>
+                <p className="text-lg font-semibold text-white">
+                  ~{getBridgeTime()}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">to {to}</p>
+              </div>
+            </div>
+          )}
+
           {/* SWITCH */}
           <div className="flex justify-center mb-6">
             <button
@@ -266,11 +311,53 @@ export default function Home() {
           {/* TO Section */}
           <div className="mb-8">
             <NetworkSelector
-              networks={availableNetworks}
+              networks={MAINNET_NETWORKS}
               value={to}
               onChange={(value) => setTo(value as BridgeChainType)}
               label="To"
             />
+          </div>
+
+          {/* Destination Address */}
+          <div className="mb-8">
+            <p className="text-sm text-gray-400 mb-2">Destination Address</p>
+            <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 hover:border-white/40 rounded-2xl p-4 flex items-center justify-between transition-all duration-200">
+              <input
+                type="text"
+                placeholder="0x..."
+                value={destinationAddress}
+                onChange={(e) => setDestinationAddress(e.target.value)}
+                className="bg-transparent outline-none text-sm w-full font-mono placeholder:text-gray-600"
+              />
+              {destinationAddress && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(destinationAddress);
+                  }}
+                  className="ml-2 text-gray-400 hover:text-white transition"
+                  title="Copy address"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {account && destinationAddress === account && (
+              <p className="text-xs text-gray-500 mt-2">
+                Connected wallet address
+              </p>
+            )}
           </div>
 
           {/* Summary card */}
