@@ -11,6 +11,8 @@ import { useWalletConnection } from "@/lib/useCCTPBridge";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { BridgeInfo } from "@/components/BridgeInfo";
 import { getAttestation } from "@/services/Web2Service";
+import { mintUsdc } from "@/services/Web3Service";
+import { ethers } from "ethers";
 
 type TabType = "bridge" | "status";
 
@@ -41,7 +43,15 @@ export default function Home() {
 
   // STATUS CARD STATES
   const [statusChain, setStatusChain] = useState<BridgeChainType>("Ethereum");
+
   const [statusTxHash, setStatusTxHash] = useState("");
+
+  const [statusMessage, setStatusMessage] = useState("");
+  const [attestation, setAttestation] = useState("");
+  const [messageBytes, setMessageBytes] = useState("");
+
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
 
   useEffect(() => {
     if (account) {
@@ -101,20 +111,71 @@ export default function Home() {
 
   const handleCheckBridgeStatus = async () => {
     try {
+      setIsCheckingStatus(true);
+
+      setStatusMessage("");
+
       console.log({
         chainIn: statusChain,
         txHash: statusTxHash,
       });
 
       const res = await getAttestation(statusChain, statusTxHash);
+
+      console.log(res);
+
       if (res.attestation === "PENDING") {
         console.log("Attestation is still pending. Please check again later.");
-      } else {
-        console.log("Attestation found:");
-        console.log(res);
+
+        setStatusMessage(
+          "⏳ Attestation is still pending. Please check again later.",
+        );
+
+        return;
       }
+
+      console.log("Attestation found:");
+      console.log(res);
+
+      setStatusMessage("✅ Attestation found successfully!");
+
+      setAttestation(res.attestation || "");
+      setMessageBytes(res.message || "");
     } catch (err) {
       console.error(err);
+
+      setStatusMessage("❌ Failed to fetch attestation.");
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  const handleMint = async () => {
+    try {
+      setIsMinting(true);
+
+      console.log("Minting USDC...");
+      console.log({
+        attestation,
+        message: messageBytes,
+      });
+      //swithnetwork(statusChain);
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      await mintUsdc(messageBytes, attestation, signer);
+
+      console.log("USDC minted successfully!");
+
+      setStatusMessage("✅ USDC minted successfully!");
+
+      await fetchBalance();
+    } catch (err) {
+      console.error(err);
+
+      setStatusMessage("❌ Failed to mint USDC.");
+    } finally {
+      setIsMinting(false);
     }
   };
 
@@ -127,7 +188,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center p-6">
-      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-3xl opacity-30" />
 
       <div className="relative w-full max-w-xl">
@@ -203,20 +263,15 @@ export default function Home() {
             </button>
           </div>
 
-          {/* ERRORS */}
           {walletError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/50 text-red-200 text-sm">
               {walletError}
             </div>
           )}
 
-          {/* ====================================================== */}
-          {/* ===================== BRIDGE CARD ==================== */}
-          {/* ====================================================== */}
-
+          {/* ===================== BRIDGE CARD ===================== */}
           {activeTab === "bridge" && (
             <>
-              {/* FROM */}
               <div className="mb-4">
                 <NetworkSelector
                   networks={MAINNET_NETWORKS}
@@ -226,7 +281,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* BALANCE */}
               <div className="mb-6 text-right">
                 <p className="text-xs text-gray-400">Available Balance</p>
 
@@ -235,7 +289,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* AMOUNT */}
               <div className="mb-6">
                 <p className="text-sm text-gray-400 mb-2">Amount</p>
 
@@ -252,7 +305,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* QUICK BUTTONS */}
               <div className="flex gap-2 mb-6">
                 {[10, 50, 100].map((quick) => (
                   <button
@@ -272,7 +324,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* FAST/SLOW */}
               <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
                 <div className="flex items-center gap-3">
                   <input
@@ -302,7 +353,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* INFO */}
               {amount && (
                 <div className="mb-6 grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30">
@@ -324,7 +374,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* SWITCH */}
               <div className="flex justify-center mb-6">
                 <button
                   onClick={swapChains}
@@ -334,7 +383,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* TO */}
               <div className="mb-8">
                 <NetworkSelector
                   networks={MAINNET_NETWORKS}
@@ -344,7 +392,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* DESTINATION */}
               <div className="mb-8">
                 <p className="text-sm text-gray-400 mb-2">
                   Destination Address
@@ -361,14 +408,12 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* SUMMARY */}
               {amount && (
                 <div className="mb-6">
                   <BridgeInfo amount={amount} fromChain={from} toChain={to} />
                 </div>
               )}
 
-              {/* CTA */}
               <button
                 onClick={handleBridge}
                 disabled={!account || isLoading || !amount}
@@ -379,13 +424,9 @@ export default function Home() {
             </>
           )}
 
-          {/* ====================================================== */}
-          {/* ===================== STATUS CARD ==================== */}
-          {/* ====================================================== */}
-
+          {/* ===================== STATUS CARD ===================== */}
           {activeTab === "status" && (
             <div>
-              {/* CHAIN */}
               <div className="mb-6">
                 <NetworkSelector
                   networks={MAINNET_NETWORKS}
@@ -395,8 +436,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* TX HASH */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <p className="text-sm text-gray-400 mb-2">
                   Burn Transaction Hash
                 </p>
@@ -412,13 +452,58 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* BUTTON */}
               <button
                 onClick={handleCheckBridgeStatus}
-                disabled={!statusTxHash}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 font-semibold text-lg hover:opacity-90 transition disabled:opacity-50"
+                disabled={!statusTxHash || isCheckingStatus}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 mb-6"
               >
-                Check Bridge Status
+                {isCheckingStatus ? "Checking..." : "Check Bridge Status"}
+              </button>
+
+              {/* STATUS MESSAGE */}
+              {statusMessage && (
+                <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white">
+                  {statusMessage}
+                </div>
+              )}
+
+              {/* ATTESTATION */}
+              <div className="mb-6">
+                <p className="text-sm text-gray-400 mb-2">Attestation</p>
+
+                <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-4">
+                  <textarea
+                    value={attestation}
+                    onChange={(e) => setAttestation(e.target.value)}
+                    rows={5}
+                    className="bg-transparent outline-none text-xs w-full font-mono placeholder:text-gray-600 resize-none"
+                    placeholder="Attestation..."
+                  />
+                </div>
+              </div>
+
+              {/* MESSAGE */}
+              <div className="mb-8">
+                <p className="text-sm text-gray-400 mb-2">Message</p>
+
+                <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-4">
+                  <textarea
+                    value={messageBytes}
+                    onChange={(e) => setMessageBytes(e.target.value)}
+                    rows={5}
+                    className="bg-transparent outline-none text-xs w-full font-mono placeholder:text-gray-600 resize-none"
+                    placeholder="Message..."
+                  />
+                </div>
+              </div>
+
+              {/* MINT BUTTON */}
+              <button
+                onClick={handleMint}
+                disabled={!attestation || !messageBytes || isMinting}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 font-semibold text-lg hover:opacity-90 transition disabled:opacity-50"
+              >
+                {isMinting ? "Minting..." : "Mint USDC"}
               </button>
             </div>
           )}
