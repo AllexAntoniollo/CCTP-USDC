@@ -146,20 +146,23 @@ export function useWalletConnection() {
           config.isFast,
         );
         let res = await getAttestation(config.from.chain, txHashBurn);
+        console.log(res);
 
-        while (res.attestation == "PENDING") {
+        while (!res || res.attestation == "PENDING") {
           await new Promise((resolve) => setTimeout(resolve, 10000));
           const updatedRes = await getAttestation(
             config.from.chain,
             txHashBurn,
           );
           res = updatedRes;
+          console.log(res);
         }
         switchNetwork(config.to.chain);
         const txHashMint = await mintUsdc(res.message, res.attestation, signer);
         switchNetwork(config.from.chain);
         return;
       } catch (err) {
+        switchNetwork(config.from.chain);
         const errorMessage =
           err instanceof Error ? err.message : "Bridge transaction failed";
         setError(errorMessage);
