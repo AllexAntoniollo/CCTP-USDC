@@ -13,6 +13,7 @@ import { BridgeInfo } from "@/components/BridgeInfo";
 import { getAttestation } from "@/services/Web2Service";
 import { mintUsdc } from "@/services/Web3Service";
 import { ethers } from "ethers";
+import { Status } from "@/components/Status";
 
 type TabType = "bridge" | "status";
 
@@ -297,31 +298,18 @@ export default function Home() {
                     type="number"
                     placeholder="0.0"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    min="0"
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      if (value === "" || Number(value) >= 0) {
+                        setAmount(value);
+                      }
+                    }}
                     className="bg-transparent outline-none text-4xl w-full font-medium placeholder:text-gray-600"
                   />
-
                   <span className="text-gray-400 ml-4 font-semibold">USDC</span>
                 </div>
-              </div>
-
-              <div className="flex gap-2 mb-6">
-                {[10, 50, 100].map((quick) => (
-                  <button
-                    key={quick}
-                    onClick={() => setAmount(quick.toString())}
-                    className="flex-1 px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition"
-                  >
-                    {quick}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => setAmount("0.00")}
-                  className="flex-1 px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition"
-                >
-                  Clear
-                </button>
               </div>
 
               <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
@@ -425,88 +413,7 @@ export default function Home() {
           )}
 
           {/* ===================== STATUS CARD ===================== */}
-          {activeTab === "status" && (
-            <div>
-              <div className="mb-6">
-                <NetworkSelector
-                  networks={MAINNET_NETWORKS}
-                  value={statusChain}
-                  onChange={(value) => setStatusChain(value as BridgeChainType)}
-                  label="Chain In"
-                />
-              </div>
-
-              <div className="mb-6">
-                <p className="text-sm text-gray-400 mb-2">
-                  Burn Transaction Hash
-                </p>
-
-                <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-4">
-                  <input
-                    type="text"
-                    placeholder="0x..."
-                    value={statusTxHash}
-                    onChange={(e) => setStatusTxHash(e.target.value)}
-                    className="bg-transparent outline-none text-sm w-full font-mono placeholder:text-gray-600"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={handleCheckBridgeStatus}
-                disabled={!statusTxHash || isCheckingStatus}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 mb-6"
-              >
-                {isCheckingStatus ? "Checking..." : "Check Bridge Status"}
-              </button>
-
-              {/* STATUS MESSAGE */}
-              {statusMessage && (
-                <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white">
-                  {statusMessage}
-                </div>
-              )}
-
-              {/* ATTESTATION */}
-              <div className="mb-6">
-                <p className="text-sm text-gray-400 mb-2">Attestation</p>
-
-                <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-4">
-                  <textarea
-                    value={attestation}
-                    onChange={(e) => setAttestation(e.target.value)}
-                    rows={5}
-                    className="bg-transparent outline-none text-xs w-full font-mono placeholder:text-gray-600 resize-none"
-                    placeholder="Attestation..."
-                  />
-                </div>
-              </div>
-
-              {/* MESSAGE */}
-              <div className="mb-8">
-                <p className="text-sm text-gray-400 mb-2">Message</p>
-
-                <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-4">
-                  <textarea
-                    value={messageBytes}
-                    onChange={(e) => setMessageBytes(e.target.value)}
-                    rows={5}
-                    className="bg-transparent outline-none text-xs w-full font-mono placeholder:text-gray-600 resize-none"
-                    placeholder="Message..."
-                  />
-                </div>
-              </div>
-
-              {/* MINT BUTTON */}
-              <button
-                onClick={handleMint}
-                disabled={!attestation || !messageBytes || isMinting}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 font-semibold text-lg hover:opacity-90 transition disabled:opacity-50"
-              >
-                {isMinting ? "Minting..." : "Mint USDC"}
-              </button>
-            </div>
-          )}
+          {activeTab === "status" && <Status></Status>}
         </div>
       </div>
     </main>

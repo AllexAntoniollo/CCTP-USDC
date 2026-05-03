@@ -55,7 +55,12 @@ import {
   USDC_DECIMALS,
   getChainConfig,
 } from "./usdc.constants";
-import { approveUSDC, burn, mintUsdc } from "@/services/Web3Service";
+import {
+  allowanceUSDC,
+  approveUSDC,
+  burn,
+  mintUsdc,
+} from "@/services/Web3Service";
 import { getAttestation } from "@/services/Web2Service";
 
 export function useWalletConnection() {
@@ -65,9 +70,6 @@ export function useWalletConnection() {
   const [error, setError] = useState<string | null>(null);
   const [currentChain, setCurrentChain] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [transaction, setTransaction] = useState<BridgeTransaction | null>(
-    null,
-  );
 
   /**
    * Switch wallet to a specific network
@@ -136,7 +138,13 @@ export function useWalletConnection() {
 
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
-        await approveUSDC(config.from.chain, config.from.amount, signer);
+        const allowance = await allowanceUSDC(config.from.chain, signer);
+        if (
+          BigInt(allowance) <
+          BigInt(ethers.parseUnits(config.from.amount, USDC_DECIMALS))
+        ) {
+          await approveUSDC(config.from.chain, config.from.amount, signer);
+        }
         const txHashBurn = await burn(
           config.from.chain,
           config.to.chain,

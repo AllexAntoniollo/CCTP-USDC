@@ -65,6 +65,37 @@ export async function approveUSDC(
   }
 }
 
+export async function allowanceUSDC(
+  chain: BridgeChainType,
+  signer: ethers.Signer,
+): Promise<string> {
+  try {
+    // Get chain configuration
+
+    // Get USDC address
+    const usdcAddress = getUSDCAddress(chain);
+    if (!usdcAddress) {
+      throw new Error(`USDC address not found for chain: ${chain}`);
+    }
+
+    const usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, signer);
+
+    // Convert amount to wei (USDC has 6 decimals)
+    const address = await signer.getAddress();
+    const allowance = await usdcContract.allowance(
+      address,
+      TOKEN_MESSENGER_ADDRESSES,
+    );
+
+    return allowance;
+  } catch (error) {
+    console.error("Error checking USDC allowance:", error);
+    throw new Error(
+      `Failed to check USDC allowance: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+}
+
 export async function burn(
   chainIn: BridgeChainType,
   chainOut: BridgeChainType,
